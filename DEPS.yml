@@ -1,0 +1,10 @@
+# FIR Filter Simulation Dependencies
+
+# Target: FIR filter testbench
+fir_filter_test:
+  deps:
+    - src/delay_line.v
+    - src/fir_core.v
+    - src/tt_um_fir_filter.v
+    - test/tb_fir_filter.sv
+  top: tb_fir_filter

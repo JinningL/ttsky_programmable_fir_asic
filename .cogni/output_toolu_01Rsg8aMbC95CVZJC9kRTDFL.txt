@@ -1,0 +1,7 @@
+=== Command: which gtkwave (2026-02-19T03:42:44.104Z) ===
+Exit Code: 1
+Output:
+gtkwave not found
+
+=== End Output ===
+
