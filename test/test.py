@@ -108,6 +108,7 @@ async def test_project(dut):
     await apply_reset(dut)
 
     # Verify low-pass preset readback: h=[4,2,1,1]
+    dut._log.info("Checking low-pass preset coefficient readback")
     await load_mode(dut, 0b10)
     assert await read_coeff6(dut, 0b00) == 4
     assert await read_coeff6(dut, 0b01) == 2
@@ -115,6 +116,7 @@ async def test_project(dut):
     assert await read_coeff6(dut, 0b11) == 1
 
     # Functional check in bypass mode: y = x0
+    dut._log.info("Checking bypass mode")
     await apply_reset(dut)
     await load_mode(dut, 0b00)
     await check_stream_mode(
@@ -124,7 +126,19 @@ async def test_project(dut):
         mode_name="bypass",
     )
 
+    # Functional check in moving average mode: y = x0 + x1 + x2 + x3
+    dut._log.info("Checking moving-average mode")
+    await apply_reset(dut)
+    await load_mode(dut, 0b01)
+    await check_stream_mode(
+        dut=dut,
+        samples=[8, 8, 8, 8, 0],
+        coeffs=[1, 1, 1, 1],
+        mode_name="moving-average",
+    )
+
     # Functional check in high-pass mode: y = x0 - x1
+    dut._log.info("Checking high-pass mode")
     await apply_reset(dut)
     await load_mode(dut, 0b11)
     await check_stream_mode(
