@@ -3,7 +3,7 @@
 
 import cocotb
 from cocotb.clock import Clock
-from cocotb.triggers import ClockCycles, RisingEdge
+from cocotb.triggers import ClockCycles, RisingEdge, FallingEdge
 
 
 def hi8(v: int) -> int:
@@ -38,6 +38,26 @@ async def read_coeff6(dut, sel: int) -> int:
     return (int(dut.uio_out.value) >> 2) & 0x3F
 
 
+async def check_stream_mode(dut, samples, coeffs, mode_name: str):
+    # y_output_reg captures previous cycle's FIR result, so compare against
+    # an expected value delayed by one sample cycle.
+    hist = [0, 0, 0, 0]
+    expected_delayed = 0
+
+    for sample in samples:
+        await send_sample(dut, sample)
+        await FallingEdge(dut.clk)
+
+        got = int(dut.uo_out.value)
+        assert got == expected_delayed, (
+            f"{mode_name} sample={sample}, hist={hist}, "
+            f"expected=0x{expected_delayed:02x}, got=0x{got:02x}"
+        )
+
+        hist = [sample & 0x3F, hist[0], hist[1], hist[2]]
+        expected_delayed = hi8(filt_value(hist, coeffs))
+
+
 @cocotb.test()
 async def test_project(dut):
     dut._log.info("Start enhanced FIR protocol test")
@@ -62,40 +82,21 @@ async def test_project(dut):
 
     # Functional check in bypass mode: y = x0
     await load_mode(dut, 0b00)
-    hist = [0, 0, 0, 0]
-    coeffs = [1, 0, 0, 0]
-
-    for sample in [10, 33, 63, 1]:
-        await send_sample(dut, sample)
-
-        # Model delay line update at sample clock edge.
-        hist = [sample & 0x3F, hist[0], hist[1], hist[2]]
-        y16 = filt_value(hist, coeffs)
-        expected = hi8(y16)
-
-        # RTL has an output register; observe one cycle later.
-        await RisingEdge(dut.clk)
-        got = int(dut.uo_out.value)
-        assert got == expected, (
-            f"bypass sample={sample}, hist={hist}, expected=0x{expected:02x}, got=0x{got:02x}"
-        )
+    await check_stream_mode(
+        dut=dut,
+        samples=[10, 33, 63, 1, 0],
+        coeffs=[1, 0, 0, 0],
+        mode_name="bypass",
+    )
 
     # Functional check in high-pass mode: y = x0 - x1
     await load_mode(dut, 0b11)
-    hist = [0, 0, 0, 0]
-    coeffs = [1, -1, 0, 0]
-
-    for sample in [0, 63, 0, 20]:
-        await send_sample(dut, sample)
-        hist = [sample & 0x3F, hist[0], hist[1], hist[2]]
-        y16 = filt_value(hist, coeffs)
-        expected = hi8(y16)
-
-        await RisingEdge(dut.clk)
-        got = int(dut.uo_out.value)
-        assert got == expected, (
-            f"high-pass sample={sample}, hist={hist}, expected=0x{expected:02x}, got=0x{got:02x}"
-        )
+    await check_stream_mode(
+        dut=dut,
+        samples=[0, 63, 0, 20, 0],
+        coeffs=[1, -1, 0, 0],
+        mode_name="high-pass",
+    )
 
     # Sanity: coeff readback of h1 in high-pass is -1 => 0xFF => low 6 bits 0x3F
     h1_rb = await read_coeff6(dut, 0b01)
