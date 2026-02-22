@@ -22,6 +22,15 @@ async def write_ui(dut, value: int):
     await RisingEdge(dut.clk)
 
 
+async def apply_reset(dut, cycles: int = 5):
+    dut.ui_in.value = 0
+    dut.uio_in.value = 0
+    dut.rst_n.value = 0
+    await ClockCycles(dut.clk, cycles)
+    dut.rst_n.value = 1
+    await RisingEdge(dut.clk)
+
+
 async def load_mode(dut, mode: int):
     # op_type=11, data[5:4]=mode, data[3]=1(enable)
     await write_ui(dut, (0b11 << 6) | ((mode & 0x3) << 4) | (1 << 3))
@@ -68,10 +77,7 @@ async def test_project(dut):
     dut.ena.value = 1
     dut.ui_in.value = 0
     dut.uio_in.value = 0
-    dut.rst_n.value = 0
-    await ClockCycles(dut.clk, 5)
-    dut.rst_n.value = 1
-    await RisingEdge(dut.clk)
+    await apply_reset(dut)
 
     # Verify low-pass preset readback: h=[4,2,1,1]
     await load_mode(dut, 0b10)
@@ -81,6 +87,7 @@ async def test_project(dut):
     assert await read_coeff6(dut, 0b11) == 1
 
     # Functional check in bypass mode: y = x0
+    await apply_reset(dut)
     await load_mode(dut, 0b00)
     await check_stream_mode(
         dut=dut,
@@ -90,6 +97,7 @@ async def test_project(dut):
     )
 
     # Functional check in high-pass mode: y = x0 - x1
+    await apply_reset(dut)
     await load_mode(dut, 0b11)
     await check_stream_mode(
         dut=dut,
