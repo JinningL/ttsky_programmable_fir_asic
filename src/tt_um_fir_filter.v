@@ -234,11 +234,12 @@ module tt_um_fir_filter (
     // ========================================================================
     // BIDIRECTIONAL I/O OUTPUTS (ENHANCED!)
     // ========================================================================
-    // uio_out[7:2] = coefficient readback (6 bits)
-    // uio_out[1]   = pipeline_valid
-    // uio_out[0]   = coeff_update_flag
+    // uio_in[1:0]  = coefficient select (INPUT)
+    // uio_out[0]   = coeff_update_flag (OUTPUT)
+    // uio_out[1]   = pipeline_valid (OUTPUT)
+    // uio_out[7:2] = coefficient readback (OUTPUT - 6 bits)
     assign uio_out = {coeff_readback[5:0], pipeline_valid, coeff_update_flag};
-    assign uio_oe  = 8'hFF;  // All outputs enabled
+    assign uio_oe  = 8'b11111100;  // Only [7:2] are outputs, [1:0] are inputs
     
     wire _unused = &{ena, uio_in[7:2], coeff_readback[7:6], 1'b0};
 
