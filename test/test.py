@@ -3,72 +3,102 @@
 
 import cocotb
 from cocotb.clock import Clock
-from cocotb.triggers import ClockCycles, RisingEdge, FallingEdge
+from cocotb.triggers import ClockCycles, RisingEdge
 
 
-def filt_value(mode, hist):
+def hi8(v: int) -> int:
+    return (v & 0xFFFF) >> 8
+
+
+def filt_value(hist, coeffs):
     x0, x1, x2, x3 = hist
-    if mode == 0b00:
-        y = x0
-    elif mode == 0b01:
-        y = x0 + x1 + x2 + x3
-    elif mode == 0b10:
-        y = 4 * x0 + 2 * x1 + x2 + x3
-    else:
-        y = x0 - x1
+    h0, h1, h2, h3 = coeffs
+    y = x0 * h0 + x1 * h1 + x2 * h2 + x3 * h3
     return y & 0xFFFF
+
+
+async def write_ui(dut, value: int):
+    dut.ui_in.value = value & 0xFF
+    await RisingEdge(dut.clk)
+
+
+async def load_mode(dut, mode: int):
+    # op_type=11, data[5:4]=mode, data[3]=1(enable)
+    await write_ui(dut, (0b11 << 6) | ((mode & 0x3) << 4) | (1 << 3))
+
+
+async def send_sample(dut, sample: int):
+    # op_type=00, data[5:0]=sample
+    await write_ui(dut, sample & 0x3F)
+
+
+async def read_coeff6(dut, sel: int) -> int:
+    dut.uio_in.value = sel & 0x3
+    await RisingEdge(dut.clk)
+    return (int(dut.uio_out.value) >> 2) & 0x3F
 
 
 @cocotb.test()
 async def test_project(dut):
-    dut._log.info("Start FIR mode test")
+    dut._log.info("Start enhanced FIR protocol test")
 
-    # 100 kHz clock
     clock = Clock(dut.clk, 10, unit="us")
     cocotb.start_soon(clock.start())
 
-    # Reset
     dut.ena.value = 1
     dut.ui_in.value = 0
     dut.uio_in.value = 0
     dut.rst_n.value = 0
-    await ClockCycles(dut.clk, 10)
+    await ClockCycles(dut.clk, 5)
     dut.rst_n.value = 1
+    await RisingEdge(dut.clk)
 
-    # Software model of delay line state before each rising edge:
-    # hist = [x0, x1, x2, x3]
+    # Verify low-pass preset readback: h=[4,2,1,1]
+    await load_mode(dut, 0b10)
+    assert await read_coeff6(dut, 0b00) == 4
+    assert await read_coeff6(dut, 0b01) == 2
+    assert await read_coeff6(dut, 0b10) == 1
+    assert await read_coeff6(dut, 0b11) == 1
+
+    # Functional check in bypass mode: y = x0
+    await load_mode(dut, 0b00)
     hist = [0, 0, 0, 0]
+    coeffs = [1, 0, 0, 0]
 
-    # ui_in format in RTL:
-    # ui_in[1:0] = mode, ui_in[7:2] = sample(6-bit)
-    stimuli = [
-        (0b00, 16),  # bypass
-        (0b00, 32),  # bypass
-        (0b01, 48),  # avg
-        (0b01, 12),  # avg
-        (0b10, 63),  # stronger low-pass
-        (0b10, 1),   # stronger low-pass
-        (0b11, 0),   # high-pass
-        (0b11, 63),  # high-pass
-        (0b11, 0),   # high-pass (negative case)
-    ]
+    for sample in [10, 33, 63, 1]:
+        await send_sample(dut, sample)
 
-    for mode, sample in stimuli:
-        ui = ((sample & 0x3F) << 2) | (mode & 0x3)
-        dut.ui_in.value = ui
+        # Model delay line update at sample clock edge.
+        hist = [sample & 0x3F, hist[0], hist[1], hist[2]]
+        y16 = filt_value(hist, coeffs)
+        expected = hi8(y16)
 
-        y16 = filt_value(mode, hist)
-        exp_uo = (y16 >> 8) & 0xFF
-
+        # RTL has an output register; observe one cycle later.
         await RisingEdge(dut.clk)
-        # For gate-level sim, allow propagation through many unit-delay gates.
-        await FallingEdge(dut.clk)
-
         got = int(dut.uo_out.value)
-        assert got == exp_uo, (
-            f"mode={mode:02b}, sample={sample}, hist={hist}, "
-            f"expected={exp_uo}, got={got}"
+        assert got == expected, (
+            f"bypass sample={sample}, hist={hist}, expected=0x{expected:02x}, got=0x{got:02x}"
         )
 
-        # Delay line captures current sample at this edge.
+    # Functional check in high-pass mode: y = x0 - x1
+    await load_mode(dut, 0b11)
+    hist = [0, 0, 0, 0]
+    coeffs = [1, -1, 0, 0]
+
+    for sample in [0, 63, 0, 20]:
+        await send_sample(dut, sample)
         hist = [sample & 0x3F, hist[0], hist[1], hist[2]]
+        y16 = filt_value(hist, coeffs)
+        expected = hi8(y16)
+
+        await RisingEdge(dut.clk)
+        got = int(dut.uo_out.value)
+        assert got == expected, (
+            f"high-pass sample={sample}, hist={hist}, expected=0x{expected:02x}, got=0x{got:02x}"
+        )
+
+    # Sanity: coeff readback of h1 in high-pass is -1 => 0xFF => low 6 bits 0x3F
+    h1_rb = await read_coeff6(dut, 0b01)
+    assert h1_rb == 0x3F, f"expected h1 readback 0x3F, got 0x{h1_rb:02x}"
+
+    dut._log.info("Enhanced FIR protocol test passed")
