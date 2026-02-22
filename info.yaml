@@ -44,15 +44,15 @@ pinout:
   uo[6]: "filtered_out[6]"
   uo[7]: "filtered_out[7] (8-bit output)"
 
-  # Bidirectional pins - Status & Readback (in/out)
-  uio[0]: "coeff_sel[0] (in) / update_flag (out)"
-  uio[1]: "coeff_sel[1] (in) / valid_flag (out)"
-  uio[2]: "unused (in) / coeff_rb[0] (out)"
-  uio[3]: "unused (in) / coeff_rb[1] (out)"
-  uio[4]: "unused (in) / coeff_rb[2] (out)"
-  uio[5]: "unused (in) / coeff_rb[3] (out)"
-  uio[6]: "unused (in) / coeff_rb[4] (out)"
-  uio[7]: "unused (in) / coeff_rb[5] (out)"
+  # Bidirectional pins - Status & Readback (all outputs)
+  uio[0]: "coeff_update_flag (output)"
+  uio[1]: "pipeline_valid (output)"
+  uio[2]: "h0_readback[0] (output)"
+  uio[3]: "h0_readback[1] (output)"
+  uio[4]: "h0_readback[2] (output)"
+  uio[5]: "h0_readback[3] (output)"
+  uio[6]: "h0_readback[4] (output)"
+  uio[7]: "h0_readback[5] (output)"
 
 # Do not change!
 yaml_version: 6
