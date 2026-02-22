@@ -1,9 +1,9 @@
 # Tiny Tapeout project information
 project:
-  title:        "4-tap FIR Low-pass Filter"      # Project title
+  title:        "Enhanced FIR DSP Peripheral (v2.0)"      # Project title
   author:       "Jinning Liu"      # Your name
   discord:      ""      # Your discord username, for communication and automatically assigning you a Tapeout role (optional)
-  description:  "An 8-bit moving-average FIR filter implemented with a delay line and adder tree."      # One line description of what your project does
+  description:  "Configurable 4-tap FIR filter with runtime coefficient programming, preset modes, status outputs, and coefficient readback - a professional DSP peripheral"      # One line description of what your project does
   language:     "Verilog" # other examples include SystemVerilog, Amaranth, VHDL, etc
   clock_hz:     0       # Clock frequency in Hz (or 0 if not applicable)
 
@@ -24,35 +24,35 @@ project:
 # The pinout of your project. Leave unused pins blank. DO NOT delete or add any pins.
 # This section is for the datasheet/website. Use descriptive names (e.g., RX, TX, MOSI, SCL, SEG_A, etc.).
 pinout:
-  # Inputs
-  ui[0]: "sample_in[0]"
-  ui[1]: "sample_in[1]"
-  ui[2]: "sample_in[2]"
-  ui[3]: "sample_in[3]"
-  ui[4]: "sample_in[4]"
-  ui[5]: "sample_in[5]"
-  ui[6]: "sample_in[6]"
-  ui[7]: "sample_in[7]"
+  # Inputs - Control & Data Interface
+  ui[0]: "data[0] / sample LSB"
+  ui[1]: "data[1]"
+  ui[2]: "data[2]"
+  ui[3]: "data[3] / mode_en"
+  ui[4]: "data[4] / mode_sel[0]"
+  ui[5]: "data[5] / mode_sel[1]"
+  ui[6]: "op_type[0]"
+  ui[7]: "op_type[1]"
 
-  # Outputs
-  uo[0]: "y_out[0]"
-  uo[1]: "y_out[1]"
-  uo[2]: "y_out[2]"
-  uo[3]: "y_out[3]"
-  uo[4]: "y_out[4]"
-  uo[5]: "y_out[5]"
-  uo[6]: "y_out[6]"
-  uo[7]: "y_out[7]"
+  # Outputs - Filtered Data
+  uo[0]: "filtered_out[0] (MSB of 16-bit)"
+  uo[1]: "filtered_out[1]"
+  uo[2]: "filtered_out[2]"
+  uo[3]: "filtered_out[3]"
+  uo[4]: "filtered_out[4]"
+  uo[5]: "filtered_out[5]"
+  uo[6]: "filtered_out[6]"
+  uo[7]: "filtered_out[7] (8-bit output)"
 
-  # Bidirectional pins
-  uio[0]: "unused"
-  uio[1]: "unused"
-  uio[2]: "unused"
-  uio[3]: "unused"
-  uio[4]: "unused"
-  uio[5]: "unused"
-  uio[6]: "unused"
-  uio[7]: "unused"
+  # Bidirectional pins - Status & Readback (in/out)
+  uio[0]: "coeff_sel[0] (in) / update_flag (out)"
+  uio[1]: "coeff_sel[1] (in) / valid_flag (out)"
+  uio[2]: "unused (in) / coeff_rb[0] (out)"
+  uio[3]: "unused (in) / coeff_rb[1] (out)"
+  uio[4]: "unused (in) / coeff_rb[2] (out)"
+  uio[5]: "unused (in) / coeff_rb[3] (out)"
+  uio[6]: "unused (in) / coeff_rb[4] (out)"
+  uio[7]: "unused (in) / coeff_rb[5] (out)"
 
 # Do not change!
 yaml_version: 6
